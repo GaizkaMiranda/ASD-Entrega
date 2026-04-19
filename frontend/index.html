@@ -273,8 +273,8 @@
   </div>
 
   <div class="api-note">
-    <span>POST http://localhost:8000/predict</span> ·
-    <span>GET http://localhost:8000/historial</span> ·
+    <span>POST http://localhost:8000/equipos/DEMO-01/predict</span> ·
+    <span>GET http://localhost:8000/equipos/DEMO-01/historial</span> ·
     Persistencia: SQLite predicciones.db
   </div>
 
@@ -282,8 +282,9 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-  const API_URL      = 'http://localhost:8000/predict';
-  const HISTORIAL_URL = 'http://localhost:8000/historial';
+  const EQUIPO_ID    = 'DEMO-01';
+  const API_URL      = `http://localhost:8000/equipos/${EQUIPO_ID}/predict`;
+  const HISTORIAL_URL = `http://localhost:8000/equipos/${EQUIPO_ID}/historial`;
   const MAX_CHART    = 20;
 
   let sessionHistory = [];   // predicciones de esta sesión (para la gráfica)
@@ -335,8 +336,8 @@
       if (!r.ok) throw new Error();
       const data = await r.json();
       setDbStatus(true);
-      document.getElementById('hist-source').textContent = 'SQLite BD';
-      renderHistoryFromBD(data);
+      document.getElementById('hist-source').textContent = 'MongoDB';
+      renderHistoryFromBD(data.registros ?? data);
     } catch {
       setDbStatus(false);
       document.getElementById('hist-source').textContent = 'memoria';
@@ -364,7 +365,7 @@
   // ── Estado BD ───────────────────────────────────────────────────────────
   function setDbStatus(online) {
     const el = document.getElementById('db-status');
-    el.textContent = online ? '⬤ SQLite conectada' : '⬤ BD desconectada';
+    el.textContent = online ? '⬤ MongoDB conectada' : '⬤ BD desconectada';
     el.style.color  = online ? '#a78bfa' : '#666';
     el.style.borderColor = online ? '#3a2a6a' : '#2a2d38';
   }
@@ -407,7 +408,7 @@
   function renderSessionHistory() {
     // Solo si la fuente es memoria (no BD)
     const src = document.getElementById('hist-source').textContent;
-    if (src === 'SQLite BD') return;
+    if (src === 'MongoDB') return;
     const body = document.getElementById('history-body');
     if (!sessionHistory.length) {
       body.innerHTML = '<tr><td colspan="5" class="empty-row">Sin datos aún</td></tr>';
