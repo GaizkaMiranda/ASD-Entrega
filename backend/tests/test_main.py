@@ -24,6 +24,7 @@ def mock_model(monkeypatch):
     """
     Reemplaza la variable global MODEL con un mock que devuelve
     probabilidades predefinidas para cada caso de prueba.
+    Tambien parchea joblib.load para que el lifespan no cargue el modelo real.
     """
     import main as app_module
 
@@ -31,6 +32,7 @@ def mock_model(monkeypatch):
     # predict_proba devuelve [[prob_clase_0, prob_clase_1]]
     mock.predict_proba.return_value = np.array([[0.15, 0.85]])
     monkeypatch.setattr(app_module, "MODEL", mock)
+    monkeypatch.setattr("joblib.load", lambda path: mock)
     return mock
 
 
@@ -54,12 +56,10 @@ class TestHealthEndpoint:
         assert data["status"] == "ok"
         assert data["modelo_cargado"] is True
 
-    def test_health_returns_503_when_model_not_loaded(self, monkeypatch):
+    def test_health_returns_503_when_model_not_loaded(self, client, monkeypatch):
         import main as app_module
         monkeypatch.setattr(app_module, "MODEL", None)
-        from main import app
-        with TestClient(app, raise_server_exceptions=False) as c:
-            response = c.get("/health")
+        response = client.get("/health")
         assert response.status_code == 503
 
 
@@ -121,10 +121,8 @@ class TestPredictEndpoint:
         response = client.post("/predict", json={"temperatura": "caliente", "vibracion": 12.0})
         assert response.status_code == 422
 
-    def test_predict_503_cuando_modelo_no_cargado(self, monkeypatch):
+    def test_predict_503_cuando_modelo_no_cargado(self, client, monkeypatch):
         import main as app_module
         monkeypatch.setattr(app_module, "MODEL", None)
-        from main import app
-        with TestClient(app, raise_server_exceptions=False) as c:
-            response = c.post("/predict", json={"temperatura": 75.0, "vibracion": 12.0})
+        response = client.post("/predict", json={"temperatura": 75.0, "vibracion": 12.0})
         assert response.status_code == 503
