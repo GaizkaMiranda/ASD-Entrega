@@ -6,7 +6,7 @@ Sistema de Mantenimiento Predictivo 4.0.
 Endpoints:
     GET  /health                          -- verificacion de estado del servicio
     POST /predict                         -- inferencia puntual de probabilidad de fallo
-    POST /equipos/{equipo_id}/predict     -- inferencia + registro en historial del equipo
+    POST /equipos/{equipo_id}/predict     -- inferencia + registro en MongoDB
     GET  /equipos/{equipo_id}/historial   -- historial de predicciones de un equipo
     GET  /estadisticas                    -- resumen global por estado para el dashboard
 """
@@ -19,14 +19,13 @@ import joblib
 import numpy as np
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from train_model import MODEL_PATH, train_and_save_model
+from database import get_db
 
 MODEL = None
-
-# Almacenamiento en memoria: equipo_id -> lista de entradas
-HISTORIAL: Dict[str, List[dict]] = {}
 
 
 # ---------------------------------------------------------------------------
@@ -51,6 +50,13 @@ app = FastAPI(
     description="API REST para inferencia de fallos en equipos industriales.",
     version="2.0.0",
     lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -106,7 +112,6 @@ def clasificar_estado(probabilidad: float) -> str:
 
 
 def _inferir(telemetria: TelemetriaInput) -> PrediccionOutput:
-    """Ejecuta la inferencia del modelo y devuelve el resultado."""
     if MODEL is None:
         raise HTTPException(status_code=503, detail="Modelo no disponible.")
     features = np.array([[telemetria.temperatura, telemetria.vibracion]])
@@ -132,7 +137,7 @@ def health_check():
 @app.post(
     "/predict",
     response_model=PrediccionOutput,
-    summary="Predice la probabilidad de fallo a partir de telemetria (sin registrar historial)",
+    summary="Predice la probabilidad de fallo (sin registrar historial)",
 )
 def predict(telemetria: TelemetriaInput):
     return _inferir(telemetria)
@@ -141,28 +146,30 @@ def predict(telemetria: TelemetriaInput):
 @app.post(
     "/equipos/{equipo_id}/predict",
     response_model=PrediccionOutput,
-    summary="Predice y registra el resultado en el historial del equipo",
+    summary="Predice y persiste el resultado en MongoDB",
 )
 def predict_equipo(equipo_id: str, telemetria: TelemetriaInput):
     resultado = _inferir(telemetria)
-    entrada = {
+    db = get_db()
+    db.historial.insert_one({
+        "equipo_id": equipo_id,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "temperatura": telemetria.temperatura,
         "vibracion": telemetria.vibracion,
         "probabilidad_fallo": resultado.probabilidad_fallo,
         "estado": resultado.estado,
-    }
-    HISTORIAL.setdefault(equipo_id, []).append(entrada)
+    })
     return resultado
 
 
 @app.get(
     "/equipos/{equipo_id}/historial",
     response_model=HistorialOutput,
-    summary="Devuelve el historial de predicciones de un equipo concreto",
+    summary="Devuelve el historial de predicciones de un equipo",
 )
 def get_historial(equipo_id: str):
-    registros = HISTORIAL.get(equipo_id, [])
+    db = get_db()
+    registros = list(db.historial.find({"equipo_id": equipo_id}, {"_id": 0}))
     return HistorialOutput(
         equipo_id=equipo_id,
         total_registros=len(registros),
@@ -176,16 +183,17 @@ def get_historial(equipo_id: str):
     summary="Resumen global del sistema para el dashboard del frontend",
 )
 def get_estadisticas():
+    db = get_db()
+    docs = list(db.historial.find({}, {"_id": 0}))
     conteo: Dict[str, int] = {"Normal": 0, "Advertencia": 0, "Critico": 0}
-    total = 0
-    for registros in HISTORIAL.values():
-        for r in registros:
-            conteo[r["estado"]] = conteo.get(r["estado"], 0) + 1
-            total += 1
+    for doc in docs:
+        conteo[doc["estado"]] = conteo.get(doc["estado"], 0) + 1
+    total = len(docs)
+    equipos = len(db.historial.distinct("equipo_id"))
     porcentaje = round((conteo["Critico"] / total * 100), 2) if total > 0 else 0.0
     return EstadisticasOutput(
         total_predicciones=total,
-        equipos_monitorizados=len(HISTORIAL),
+        equipos_monitorizados=equipos,
         conteo_por_estado=conteo,
         porcentaje_criticos=porcentaje,
     )
