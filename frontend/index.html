@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mantenimiento Predictivo 4.0</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Syne', sans-serif;
+      background: #0f1117;
+      color: #e8e8e8;
+      min-height: 100vh;
+      padding: 1.5rem;
+    }
+
+    .root {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* HEADER */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid #2a2d38;
+    }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .logo {
+      width: 36px; height: 36px;
+      background: #1a2740;
+      border: 1px solid #2a4a80;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .title { font-size: 17px; font-weight: 700; color: #f0f0f0; letter-spacing: -0.3px; }
+    .subtitle { font-size: 11px; color: #888; font-family: 'IBM Plex Mono', monospace; margin-top: 2px; }
+    .live-badge {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px; font-family: 'IBM Plex Mono', monospace;
+      color: #4ade80; background: #0d2018; border: 1px solid #1a4a2e;
+      border-radius: 20px; padding: 4px 12px;
+    }
+    .live-dot { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; animation: pulse 1.4s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    /* METRIC CARDS */
+    .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+    .metric-card { background: #181c27; border: 1px solid #2a2d38; border-radius: 10px; padding: 14px 16px; }
+    .metric-label { font-size: 10px; color: #666; font-family: 'IBM Plex Mono', monospace; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+    .metric-value { font-size: 26px; font-weight: 500; font-family: 'IBM Plex Mono', monospace; color: #f0f0f0; line-height: 1; }
+    .metric-unit { font-size: 13px; color: #666; margin-left: 3px; }
+
+    /* STATUS BADGES */
+    .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 500; padding: 5px 12px; border-radius: 20px; }
+    .badge-normal   { background: #0d2018; color: #4ade80; border: 1px solid #1a4a2e; }
+    .badge-warning  { background: #1f1500; color: #fbbf24; border: 1px solid #4a3000; }
+    .badge-critical { background: #1f0808; color: #f87171; border: 1px solid #4a1515; animation: flash 1s infinite; }
+    @keyframes flash { 0%,100%{opacity:1} 50%{opacity:0.6} }
+
+    /* PANELS */
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .panel { background: #181c27; border: 1px solid #2a2d38; border-radius: 12px; padding: 16px 18px; }
+    .panel-title { font-size: 10px; font-weight: 500; color: #666; font-family: 'IBM Plex Mono', monospace; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 14px; }
+
+    /* CONTROLS */
+    .controls { display: flex; flex-direction: column; gap: 16px; }
+    .slider-group { display: flex; flex-direction: column; gap: 6px; }
+    .slider-row { display: flex; align-items: center; justify-content: space-between; }
+    .slider-label { font-size: 13px; color: #ccc; }
+    .slider-val { font-size: 13px; font-family: 'IBM Plex Mono', monospace; color: #888; }
+    input[type=range] { -webkit-appearance: none; width: 100%; height: 4px; background: #2a2d38; border-radius: 2px; outline: none; cursor: pointer; }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #378ADD; border: 2px solid #1a1d27; cursor: pointer; }
+    select { width: 100%; padding: 7px 10px; font-size: 12px; background: #0f1117; color: #ccc; border: 1px solid #2a2d38; border-radius: 6px; font-family: 'Syne', sans-serif; cursor: pointer; outline: none; }
+    button { padding: 9px 16px; font-size: 13px; font-family: 'Syne', sans-serif; background: #1a2740; color: #7ab4f0; border: 1px solid #2a4a80; border-radius: 8px; cursor: pointer; transition: background 0.15s; }
+    button:hover { background: #1f3050; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-full { width: 100%; }
+    .btn-row { display: flex; gap: 8px; }
+    .btn-row button { flex: 1; }
+
+    /* GAUGE */
+    .gauge-wrap { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    .gauge-pct { font-size: 40px; font-weight: 500; font-family: 'IBM Plex Mono', monospace; color: #f0f0f0; }
+    .prob-bar-wrap { width: 100%; height: 10px; background: #2a2d38; border-radius: 5px; overflow: hidden; }
+    .prob-bar { height: 100%; border-radius: 5px; transition: width 0.6s ease, background 0.4s; }
+    .bar-labels { display: flex; justify-content: space-between; margin-top: 5px; }
+    .bar-lbl { font-size: 10px; font-family: 'IBM Plex Mono', monospace; color: #555; }
+
+    /* CHART */
+    .chart-panel { background: #181c27; border: 1px solid #2a2d38; border-radius: 12px; padding: 16px 18px; }
+    .chart-legend { display: flex; gap: 16px; margin-bottom: 10px; flex-wrap: wrap; }
+    .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #888; }
+    .legend-dot { width: 22px; height: 3px; border-radius: 2px; }
+    .chart-wrap { position: relative; width: 100%; height: 200px; }
+
+    /* HISTORY */
+    .history-scroll { max-height: 200px; overflow-y: auto; }
+    .history-scroll::-webkit-scrollbar { width: 4px; }
+    .history-scroll::-webkit-scrollbar-track { background: #0f1117; }
+    .history-scroll::-webkit-scrollbar-thumb { background: #2a2d38; border-radius: 2px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { font-size: 10px; color: #555; font-family: 'IBM Plex Mono', monospace; text-transform: uppercase; letter-spacing: 0.4px; text-align: left; padding: 0 8px 8px 0; border-bottom: 1px solid #2a2d38; }
+    td { padding: 7px 8px 7px 0; color: #ccc; font-family: 'IBM Plex Mono', monospace; border-bottom: 1px solid #1a1d27; vertical-align: middle; }
+    .empty-row { color: #555; text-align: center; padding: 24px 0; }
+
+    /* SIM PANEL */
+    .sim-desc { font-size: 13px; color: #666; line-height: 1.6; margin-bottom: 10px; }
+    .sim-status { font-size: 11px; color: #555; font-family: 'IBM Plex Mono', monospace; margin-top: 6px; }
+    .scenario-label { font-size: 11px; color: #555; margin-bottom: 6px; }
+
+    /* API NOTE */
+    .api-note { font-size: 11px; color: #444; font-family: 'IBM Plex Mono', monospace; text-align: center; padding-top: 8px; border-top: 1px solid #1a1d27; }
+    .api-note span { color: #378ADD; }
+
+    /* DB STATUS */
+    .db-tag { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-family: 'IBM Plex Mono', monospace; background: #1a1230; color: #a78bfa; border: 1px solid #3a2a6a; border-radius: 20px; padding: 3px 10px; }
+
+    @media (max-width: 640px) {
+      .metrics { grid-template-columns: repeat(2, 1fr); }
+      .row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="root">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      <div class="logo">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <circle cx="9" cy="9" r="7" stroke="#378ADD" stroke-width="1.5"/>
+          <circle cx="9" cy="9" r="3" fill="#378ADD"/>
+          <line x1="9" y1="2" x2="9" y2="4" stroke="#378ADD" stroke-width="1.5"/>
+          <line x1="9" y1="14" x2="9" y2="16" stroke="#378ADD" stroke-width="1.5"/>
+          <line x1="2" y1="9" x2="4" y2="9" stroke="#378ADD" stroke-width="1.5"/>
+          <line x1="14" y1="9" x2="16" y2="9" stroke="#378ADD" stroke-width="1.5"/>
+        </svg>
+      </div>
+      <div>
+        <div class="title">Mantenimiento Predictivo 4.0</div>
+        <div class="subtitle">Línea A · Equipo #001 · FastAPI + SQLite</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <div class="db-tag" id="db-status">⬤ BD desconectada</div>
+      <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+    </div>
+  </div>
+
+  <!-- METRICS -->
+  <div class="metrics">
+    <div class="metric-card">
+      <div class="metric-label">Temperatura</div>
+      <div class="metric-value" id="met-temp">—<span class="metric-unit">°C</span></div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Vibración</div>
+      <div class="metric-value" id="met-vib">—<span class="metric-unit">mm/s</span></div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Prob. fallo</div>
+      <div class="metric-value" id="met-prob">—<span class="metric-unit">%</span></div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Estado</div>
+      <div id="met-estado"><span class="badge badge-normal">● Normal</span></div>
+    </div>
+  </div>
+
+  <!-- CONTROLS + GAUGE -->
+  <div class="row">
+    <div class="panel">
+      <div class="panel-title">Enviar telemetría manual</div>
+      <div class="controls">
+        <div class="slider-group">
+          <div class="slider-row">
+            <span class="slider-label">Temperatura</span>
+            <span class="slider-val" id="lbl-temp">65 °C</span>
+          </div>
+          <input type="range" min="30" max="120" value="65" step="1" id="sl-temp">
+        </div>
+        <div class="slider-group">
+          <div class="slider-row">
+            <span class="slider-label">Vibración</span>
+            <span class="slider-val" id="lbl-vib">8.0 mm/s</span>
+          </div>
+          <input type="range" min="0" max="25" value="8" step="0.5" id="sl-vib">
+        </div>
+        <button class="btn-full" id="btn-predict" onclick="runPredict()">Predecir →</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Probabilidad de fallo</div>
+      <div class="gauge-wrap">
+        <div class="gauge-pct" id="gauge-pct">— %</div>
+        <div style="width:100%">
+          <div class="prob-bar-wrap">
+            <div class="prob-bar" id="prob-bar" style="width:0%;background:#3B6D11;"></div>
+          </div>
+          <div class="bar-labels">
+            <span class="bar-lbl">0% Normal</span>
+            <span class="bar-lbl" style="color:#fbbf24;">40% Advertencia</span>
+            <span class="bar-lbl" style="color:#f87171;">70% Crítico</span>
+          </div>
+        </div>
+        <div id="estado-badge"><span class="badge badge-normal">● Normal</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHART -->
+  <div class="chart-panel">
+    <div class="panel-title">Evolución temporal · últimas lecturas</div>
+    <div class="chart-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#f87171;"></div>Temperatura (°C)</div>
+      <div class="legend-item"><div class="legend-dot" style="border-top:2px dashed #60a5fa;"></div>Vibración (mm/s)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#fbbf24;"></div>Prob. fallo (%)</div>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="chart-hist" role="img" aria-label="Gráfico de líneas: temperatura, vibración y probabilidad de fallo">Sin datos aún</canvas>
+    </div>
+  </div>
+
+  <!-- HISTORY + SIM -->
+  <div class="row">
+    <div class="panel">
+      <div class="panel-title">
+        Historial de predicciones
+        <span style="margin-left:8px;" class="db-tag" id="hist-source">memoria</span>
+      </div>
+      <div class="history-scroll">
+        <table>
+          <thead>
+            <tr><th>Hora</th><th>Temp</th><th>Vib</th><th>Prob</th><th>Estado</th></tr>
+          </thead>
+          <tbody id="history-body">
+            <tr><td colspan="5" class="empty-row">Cargando historial...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Simulación automática</div>
+      <p class="sim-desc">Genera lecturas cada 3s simulando el sensor del equipo industrial.</p>
+      <div class="btn-row">
+        <button id="btn-auto" onclick="toggleAuto()">▶ Iniciar</button>
+        <button onclick="clearHistory()">↺ Limpiar</button>
+        <button onclick="cargarHistorialBD()" title="Recargar desde base de datos">⟳ BD</button>
+      </div>
+      <div class="sim-status" id="sim-status">Detenido</div>
+      <div style="margin-top:14px;border-top:1px solid #2a2d38;padding-top:14px;">
+        <div class="scenario-label">Escenario de simulación:</div>
+        <select id="scenario">
+          <option value="normal">Normal (temperatura baja, vibración baja)</option>
+          <option value="warning">Advertencia (temperatura media)</option>
+          <option value="critical">Crítico (temperatura alta, vibración alta)</option>
+          <option value="random">Aleatorio mixto</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="api-note">
+    <span>POST http://localhost:8000/predict</span> ·
+    <span>GET http://localhost:8000/historial</span> ·
+    Persistencia: SQLite predicciones.db
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+  const API_URL      = 'http://localhost:8000/predict';
+  const HISTORIAL_URL = 'http://localhost:8000/historial';
+  const MAX_CHART    = 20;
+
+  let sessionHistory = [];   // predicciones de esta sesión (para la gráfica)
+  let autoInterval   = null;
+  let chartInst      = null;
+  let backendOnline  = false;
+
+  const slTemp = document.getElementById('sl-temp');
+  const slVib  = document.getElementById('sl-vib');
+  slTemp.oninput = () => { document.getElementById('lbl-temp').textContent = slTemp.value + ' °C'; };
+  slVib.oninput  = () => { document.getElementById('lbl-vib').textContent  = parseFloat(slVib.value).toFixed(1) + ' mm/s'; };
+
+  // ── Modelo local de fallback ────────────────────────────────────────────
+  function classifyLocal(temp, vib) {
+    const t   = (temp - 30) / 90;
+    const v   = vib / 25;
+    const raw = 0.55 * t + 0.45 * v + (Math.random() * 0.06 - 0.03);
+    const prob = Math.min(1, Math.max(0, raw));
+    let estado = 'Normal';
+    if (prob >= 0.70) estado = 'Critico';
+    else if (prob >= 0.40) estado = 'Advertencia';
+    return { probabilidad_fallo: Math.round(prob * 10000) / 10000, estado };
+  }
+
+  // ── Llamada al backend ──────────────────────────────────────────────────
+  async function fetchPredict(temp, vib) {
+    try {
+      const r = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ temperatura: temp, vibracion: vib }),
+        signal: AbortSignal.timeout(2000)
+      });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      backendOnline = true;
+      setDbStatus(true);
+      return await r.json();
+    } catch {
+      backendOnline = false;
+      setDbStatus(false);
+      return classifyLocal(temp, vib);
+    }
+  }
+
+  // ── Cargar historial desde la BD ────────────────────────────────────────
+  async function cargarHistorialBD() {
+    try {
+      const r = await fetch(HISTORIAL_URL, { signal: AbortSignal.timeout(2000) });
+      if (!r.ok) throw new Error();
+      const data = await r.json();
+      setDbStatus(true);
+      document.getElementById('hist-source').textContent = 'SQLite BD';
+      renderHistoryFromBD(data);
+    } catch {
+      setDbStatus(false);
+      document.getElementById('hist-source').textContent = 'memoria';
+    }
+  }
+
+  function renderHistoryFromBD(data) {
+    const body = document.getElementById('history-body');
+    if (!data.length) {
+      body.innerHTML = '<tr><td colspan="5" class="empty-row">Sin datos en la BD</td></tr>';
+      return;
+    }
+    body.innerHTML = data.map(r => {
+      const pct = Math.round(r.probabilidad_fallo * 100);
+      return `<tr>
+        <td>${r.timestamp.slice(11,19)}</td>
+        <td>${parseFloat(r.temperatura).toFixed(1)}</td>
+        <td>${parseFloat(r.vibracion).toFixed(1)}</td>
+        <td>${pct}%</td>
+        <td>${getStatusHTML(r.estado)}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // ── Estado BD ───────────────────────────────────────────────────────────
+  function setDbStatus(online) {
+    const el = document.getElementById('db-status');
+    el.textContent = online ? '⬤ SQLite conectada' : '⬤ BD desconectada';
+    el.style.color  = online ? '#a78bfa' : '#666';
+    el.style.borderColor = online ? '#3a2a6a' : '#2a2d38';
+  }
+
+  // ── UI helpers ──────────────────────────────────────────────────────────
+  function getBarColor(prob) {
+    if (prob >= 0.70) return '#f87171';
+    if (prob >= 0.40) return '#fbbf24';
+    return '#4ade80';
+  }
+
+  function getStatusHTML(estado) {
+    const cls = estado === 'Critico' ? 'badge-critical' : estado === 'Advertencia' ? 'badge-warning' : 'badge-normal';
+    const dot = estado === 'Critico' ? '⚠' : '●';
+    return `<span class="badge ${cls}">${dot} ${estado}</span>`;
+  }
+
+  function updateUI(temp, vib, result) {
+    const pct = Math.round(result.probabilidad_fallo * 100);
+    document.getElementById('met-temp').innerHTML  = temp.toFixed(1) + '<span class="metric-unit">°C</span>';
+    document.getElementById('met-vib').innerHTML   = vib.toFixed(1)  + '<span class="metric-unit">mm/s</span>';
+    document.getElementById('met-prob').innerHTML  = pct + '<span class="metric-unit">%</span>';
+    document.getElementById('met-estado').innerHTML = getStatusHTML(result.estado);
+    document.getElementById('gauge-pct').textContent = pct + ' %';
+    document.getElementById('estado-badge').innerHTML = getStatusHTML(result.estado);
+    const bar = document.getElementById('prob-bar');
+    bar.style.width      = pct + '%';
+    bar.style.background = getBarColor(result.probabilidad_fallo);
+  }
+
+  // ── Historial en sesión (para la gráfica) ───────────────────────────────
+  function addToSession(temp, vib, result) {
+    const ts = new Date().toLocaleTimeString('es-ES');
+    sessionHistory.unshift({ ts, temp, vib, prob: result.probabilidad_fallo, estado: result.estado });
+    if (sessionHistory.length > MAX_CHART) sessionHistory.pop();
+    renderSessionHistory();
+    updateChart();
+  }
+
+  function renderSessionHistory() {
+    // Solo si la fuente es memoria (no BD)
+    const src = document.getElementById('hist-source').textContent;
+    if (src === 'SQLite BD') return;
+    const body = document.getElementById('history-body');
+    if (!sessionHistory.length) {
+      body.innerHTML = '<tr><td colspan="5" class="empty-row">Sin datos aún</td></tr>';
+      return;
+    }
+    body.innerHTML = sessionHistory.map(r => {
+      const pct = Math.round(r.prob * 100);
+      return `<tr>
+        <td>${r.ts}</td>
+        <td>${r.temp.toFixed(1)}</td>
+        <td>${r.vib.toFixed(1)}</td>
+        <td>${pct}%</td>
+        <td>${getStatusHTML(r.estado)}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // ── Gráfica ─────────────────────────────────────────────────────────────
+  function updateChart() {
+    const rev    = [...sessionHistory].reverse();
+    const labels = rev.map(r => r.ts);
+    const temps  = rev.map(r => parseFloat(r.temp.toFixed(1)));
+    const vibs   = rev.map(r => parseFloat(r.vib.toFixed(1)));
+    const probs  = rev.map(r => Math.round(r.prob * 100));
+
+    if (!chartInst) {
+      chartInst = new Chart(document.getElementById('chart-hist'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Temperatura (°C)', data: temps, borderColor: '#f87171', borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#f87171', tension: 0.4, yAxisID: 'yL' },
+            { label: 'Vibración (mm/s)', data: vibs,  borderColor: '#60a5fa', borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#60a5fa', tension: 0.4, borderDash: [5,3], yAxisID: 'yL' },
+            { label: 'Prob. fallo (%)',  data: probs,  borderColor: '#fbbf24', borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#fbbf24', tension: 0.4, borderDash: [2,2], yAxisID: 'yR' },
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: { legend: { display: false } },
+          scales: {
+            x:  { ticks: { color: '#555', font: { family: 'IBM Plex Mono', size: 10 }, maxTicksLimit: 8, autoSkip: true, maxRotation: 40 }, grid: { color: '#1a1d27' } },
+            yL: { position: 'left',  ticks: { color: '#555', font: { family: 'IBM Plex Mono', size: 10 } }, grid: { color: '#1a1d27' } },
+            yR: { position: 'right', min: 0, max: 100, ticks: { color: '#555', font: { family: 'IBM Plex Mono', size: 10 }, callback: v => v + '%' }, grid: { display: false } }
+          }
+        }
+      });
+    } else {
+      chartInst.data.labels = labels;
+      chartInst.data.datasets[0].data = temps;
+      chartInst.data.datasets[1].data = vibs;
+      chartInst.data.datasets[2].data = probs;
+      chartInst.update('none');
+    }
+  }
+
+  // ── Predecir ─────────────────────────────────────────────────────────────
+  async function runPredict() {
+    const temp = parseFloat(slTemp.value);
+    const vib  = parseFloat(slVib.value);
+    const btn  = document.getElementById('btn-predict');
+    btn.disabled = true; btn.textContent = 'Prediciendo...';
+    const result = await fetchPredict(temp, vib);
+    updateUI(temp, vib, result);
+    addToSession(temp, vib, result);
+    // si el backend está online, recargamos el historial real de BD
+    if (backendOnline) cargarHistorialBD();
+    btn.disabled = false; btn.textContent = 'Predecir →';
+  }
+
+  // ── Simulación automática ────────────────────────────────────────────────
+  function getScenarioValues(scenario) {
+    if (scenario === 'normal')   return { temp: 40 + Math.random() * 20, vib: 2 + Math.random() * 4 };
+    if (scenario === 'warning')  return { temp: 65 + Math.random() * 12, vib: 7 + Math.random() * 5 };
+    if (scenario === 'critical') return { temp: 85 + Math.random() * 20, vib: 13 + Math.random() * 9 };
+    const r = Math.random();
+    if (r < 0.5)  return { temp: 40 + Math.random() * 25, vib: 2 + Math.random() * 5 };
+    if (r < 0.75) return { temp: 65 + Math.random() * 12, vib: 7 + Math.random() * 5 };
+    return { temp: 84 + Math.random() * 22, vib: 12 + Math.random() * 9 };
+  }
+
+  function toggleAuto() {
+    const btn    = document.getElementById('btn-auto');
+    const status = document.getElementById('sim-status');
+    if (autoInterval) {
+      clearInterval(autoInterval);
+      autoInterval = null;
+      btn.textContent    = '▶ Iniciar';
+      status.textContent = 'Detenido';
+    } else {
+      const run = async () => {
+        const scenario = document.getElementById('scenario').value;
+        const { temp, vib } = getScenarioValues(scenario);
+        slTemp.value = Math.round(temp);
+        slVib.value  = parseFloat(vib.toFixed(1));
+        document.getElementById('lbl-temp').textContent = Math.round(temp) + ' °C';
+        document.getElementById('lbl-vib').textContent  = vib.toFixed(1) + ' mm/s';
+        const result = await fetchPredict(temp, vib);
+        updateUI(temp, vib, result);
+        addToSession(temp, vib, result);
+        if (backendOnline) cargarHistorialBD();
+        status.textContent = 'Última lectura: ' + new Date().toLocaleTimeString('es-ES');
+      };
+      run();
+      autoInterval = setInterval(run, 3000);
+      btn.textContent = '■ Detener';
+    }
+  }
+
+  function clearHistory() {
+    sessionHistory = [];
+    renderSessionHistory();
+    if (chartInst) { chartInst.destroy(); chartInst = null; }
+  }
+
+  // ── Al cargar la página, intenta traer el historial de la BD ─────────────
+  window.addEventListener('load', () => {
+    cargarHistorialBD();
+  });
+</script>
+</body>
+</html>
